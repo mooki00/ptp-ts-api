@@ -1,6 +1,6 @@
 {
   "name": "@mooki0/ptp-ts-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TypeScript API client for PassThePopcorn",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
