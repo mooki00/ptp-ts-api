@@ -1,12 +1,15 @@
 import { PTPApi } from '../api/api';
-import { Movie } from '../models/movie';
-import { Torrent } from '../models/torrent';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as yaml from 'yaml';
+import cheerio from 'cheerio';
+import parseTorrent from 'parse-torrent';
+import type { Instance as TorrentInstance } from 'parse-torrent';
 
 interface OriginData {
   Title: string;
   Year: number;
   Directors: string[];
-  Type: string;
   ReleaseName: string;
   RemasterTitle: string;
   IMDb: string;
@@ -28,10 +31,13 @@ interface OriginData {
   DeletionLog?: string[];
 }
 
+interface ParsedTorrent extends TorrentInstance {
+  comment?: string;
+}
+
 export class OriginManager {
   private api: PTPApi;
   private readonly COMMENT_REGEX = /https:\/\/passthepopcorn\.me\/torrents\.php\?id=(\d+)&torrentid=(\d+)/;
-  private readonly URL_REGEX = /((http|https):\/\/)[a-zA-Z0-9\.\/?:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/?:@\-_=#])*/;
   private readonly DELETED_BY_REGEX = /was deleted by .* for/;
   
   constructor(api: PTPApi) {
@@ -60,7 +66,7 @@ export class OriginManager {
     const outputDir = options.outputDirectory || this.getBaseName(torrentPath);
     await this.ensureDirectory(outputDir);
     
-    const yamlPath = `${outputDir}/${this.getBaseName(torrentPath)}.yaml`;
+    const yamlPath = path.join(outputDir, `${this.getBaseName(torrentPath)}.yaml`);
     if (await this.fileExists(yamlPath) && !options.overwrite) {
       logger.info(`Skipping file ${torrentPath}, origin file '${yamlPath}' exists`);
       return;
@@ -72,7 +78,6 @@ export class OriginManager {
       Title: movie.title,
       Year: parseInt(movie.year),
       Directors: movie.directors,
-      Type: movie.type,
       ReleaseName: torrent.name,
       RemasterTitle: torrent.remasterTitle,
       IMDb: `https://imdb.com/title/tt${movie.imdbId}`,
@@ -98,16 +103,15 @@ export class OriginManager {
       data.DeletionLog = deletionLog;
     }
     
-    const yaml = await this.toYAML(data);
-    await this.writeFile(yamlPath, yaml);
+    const yamlContent = await this.toYAML(data);
+    await this.writeFile(yamlPath, yamlContent);
   }
   
-  private async readMetafile(path: string): Promise<any> {
-    // This would use a torrent parsing library in a real implementation
-    const content = await this.readFile(path);
+  private async readMetafile(path: string): Promise<{ comment?: string }> {
+    const content = await fs.readFile(path);
+    const torrent = parseTorrent(content) as ParsedTorrent;
     return {
-      comment: content.comment,
-      // other metafile fields...
+      comment: torrent.comment
     };
   }
   
@@ -120,41 +124,40 @@ export class OriginManager {
     });
     
     const log: string[] = [];
-    // Parse HTML response and extract deletion log entries
-    // This would use a proper HTML parser in a real implementation
+    const $ = cheerio.load(response);
+    
+    $('.log_entries tr').each((_, row) => {
+      const text = $(row).find('td:last-child').text().trim();
+      if (this.DELETED_BY_REGEX.test(text)) {
+        log.push(text);
+      }
+    });
+    
     return log;
   }
   
   private async toYAML(data: OriginData): Promise<string> {
-    // This would use a proper YAML library in a real implementation
-    return JSON.stringify(data, null, 2);
+    return yaml.stringify(data, { indent: 2 });
   }
   
-  private getBaseName(path: string): string {
-    return path.split('/').pop()?.replace(/\.[^/.]+$/, '') || path;
+  private getBaseName(filePath: string): string {
+    return path.basename(filePath, path.extname(filePath));
   }
   
-  private async ensureDirectory(path: string): Promise<void> {
-    // Create directory if it doesn't exist
-    // This would use fs.promises.mkdir in a real implementation
+  private async ensureDirectory(dirPath: string): Promise<void> {
+    await fs.mkdir(dirPath, { recursive: true });
   }
   
-  private async fileExists(path: string): Promise<boolean> {
+  private async fileExists(filePath: string): Promise<boolean> {
     try {
-      await this.readFile(path);
+      await fs.access(filePath);
       return true;
     } catch {
       return false;
     }
   }
   
-  private async readFile(path: string): Promise<any> {
-    // This would use fs.promises.readFile in a real implementation
-    throw new Error('Not implemented');
-  }
-  
-  private async writeFile(path: string, content: string): Promise<void> {
-    // This would use fs.promises.writeFile in a real implementation
-    throw new Error('Not implemented');
+  private async writeFile(filePath: string, content: string): Promise<void> {
+    await fs.writeFile(filePath, content, 'utf8');
   }
 }

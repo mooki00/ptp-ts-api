@@ -118,6 +118,50 @@ const bookmarks = await user.bookmarks();
 const uploads = await user.uploads();
 ```
 
+## Advanced Search
+
+The API supports PTP's advanced search functionality with type-safe parameters:
+
+```typescript
+import { PTPApi, SortBy, Resolution, Source, Container, VideoCodec } from 'ptp-ts-api';
+
+// Initialize the API
+const api = new PTPApi({
+  apiUser: 'your-api-user',
+  apiKey: 'your-api-key'
+});
+
+// Basic movie search
+const movies = await api.advancedSearch({
+  searchstr: 'Inception',
+  year: '2010'
+});
+
+// Advanced quality search
+const hdMovies = await api.advancedSearch({
+  media: Source.BLU_RAY,
+  resolution: Resolution.R1080P,
+  encoding: Container.MKV,
+  format: VideoCodec.X264,
+  order_by: SortBy.SEEDERS,
+  order_way: 'desc'
+});
+
+// Search with multiple filters
+const japaneseAction = await api.advancedSearch({
+  language: 'japanese,english',
+  subtitles: 'english',
+  countrylist: 'japan',
+  taglist: 'action,!horror',
+  tags_type: 'any',
+  imdbrating: '8.0-',
+  order_by: SortBy.IMDB_RATING,
+  order_way: 'desc'
+});
+```
+
+See [Advanced Search Documentation](docs/advanced-search.md) for full details of all available parameters.
+
 ## API Reference
 
 ### PTPApi

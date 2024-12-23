@@ -1,4 +1,6 @@
 import { PTPApi } from '../api/api';
+import { validatePTPTorrentInfo } from '../types/torrent';
+import { PTPError } from '../types/api';
 
 export class Torrent {
   private api: PTPApi;
@@ -21,7 +23,11 @@ export class Torrent {
   public releaseGroup: string;
   public infoHash: string;
 
-  constructor(api: PTPApi, data: any) {
+  constructor(api: PTPApi, data: unknown) {
+    if (!validatePTPTorrentInfo(data)) {
+      throw new PTPError('Invalid torrent data received from API', undefined, data);
+    }
+
     this.api = api;
     this.id = data.Id;
     this.groupId = data.GroupId;
@@ -31,16 +37,16 @@ export class Torrent {
     this.container = data.Container;
     this.source = data.Source;
     this.resolution = data.Resolution;
-    this.remasterTitle = data.RemasterTitle;
+    this.remasterTitle = data.RemasterTitle || '';
     this.seeders = parseInt(data.Seeders);
     this.leechers = parseInt(data.Leechers);
     this.uploadTime = data.UploadTime;
-    this.description = data.BBCodeDescription;
-    this.checked = data.Checked;
-    this.goldenPopcorn = data.GoldenPopcorn;
-    this.scene = data.Scene;
-    this.releaseGroup = data.ReleaseGroup;
-    this.infoHash = data.InfoHash;
+    this.description = data.BBCodeDescription || '';
+    this.checked = !!data.Checked;
+    this.goldenPopcorn = !!data.GoldenPopcorn;
+    this.scene = !!data.Scene;
+    this.releaseGroup = data.ReleaseGroup || '';
+    this.infoHash = data.InfoHash || '';
   }
 
   async download(path?: string): Promise<void> {

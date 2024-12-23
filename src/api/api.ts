@@ -1,73 +1,83 @@
 import { ConfigManager } from '../utils/config';
 import { TokenBucket } from '../utils/rate-limiter';
-import { PTPAPIError } from '../utils/error';
 import { Movie } from '../models/movie';
 import { Torrent } from '../models/torrent';
 import { User, CurrentUser } from '../models/user';
+import { AdvancedSearchParams } from '../types/search';
+import { ConfigKey, ConfigValidationError } from '../types/config';
+import {
+  PTPSearchResponse,
+  PTPErrorResponse,
+  isPTPErrorResponse,
+  PTPError
+} from '../types/api';
+import * as fs from 'fs/promises';
 
 export interface PTPConfig {
   apiUser?: string;
   apiKey?: string;
   username?: string;
   password?: string;
-  passkey?: string;
+  passKey?: string;
+  baseUrl?: string;
+  cookiesFile?: string;
+  retry?: boolean;
 }
 
 export class PTPApi {
-  private config: ConfigManager;
+  private sessionCookies: string[] = [];
+  private authKey: string = '';
+  private passKey: string = '';
   private rateLimiter: TokenBucket;
-  private authKey: string;
-  private passKey: string;
-  private sessionCookies: string[];
 
-  constructor(config: PTPConfig) {
-    this.config = new ConfigManager(config);
+  constructor(
+    private config: ConfigManager
+  ) {
     this.rateLimiter = new TokenBucket(5, 2); // 5 tokens, 2 per second
-    this.authKey = '';
-    this.passKey = '';
-    this.sessionCookies = [];
+  }
+
+  async init(): Promise<void> {
+    try {
+      // Try API key auth first
+      const apiUser = this.config.get(ConfigKey.API_USER);
+      const apiKey = this.config.get(ConfigKey.API_KEY);
+      if (apiUser && apiKey) {
+        await this.loginWithApiKey(apiUser, apiKey);
+        return;
+      }
+
+      // Fall back to password auth
+      const username = this.config.get(ConfigKey.USERNAME);
+      const password = this.config.get(ConfigKey.PASSWORD);
+      const passkey = this.config.get(ConfigKey.PASSKEY);
+      if (username && password && passkey) {
+        await this.loginWithPassword(username, password, passkey);
+        return;
+      }
+
+      throw new PTPError('No valid authentication method found');
+    } catch (error) {
+      throw PTPError.fromError(error);
+    }
   }
 
   async login(): Promise<void> {
-    const apiUser = this.config.get('APIUSER');
-    const apiKey = this.config.get('APIKEY');
-    
-    if (apiUser && apiKey) {
-      await this.loginWithApiKey(apiUser, apiKey);
-    } else {
-      const username = this.config.get('USERNAME');
-      const password = this.config.get('PASSWORD');
-      const passkey = this.config.get('PASSKEY');
-      
-      if (!username || !password || !passkey) {
-        throw new PTPAPIError('Missing credentials');
-      }
-      
-      await this.loginWithCredentials(username, password, passkey);
-    }
+    await this.init();
   }
 
   async get(endpoint: string, params: Record<string, string> = {}): Promise<any> {
     await this.rateLimiter.consume();
-    const url = new URL(endpoint, this.config.get('BASEURL'));
+    const url = new URL(endpoint, this.config.getRequired(ConfigKey.BASE_URL));
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, value);
     });
 
     const response = await fetch(url.toString(), {
-      headers: {
-        'Cookie': this.sessionCookies.join('; '),
-        'ApiUser': this.config.get('APIUSER'),
-        'ApiKey': this.config.get('APIKEY')
-      }
+      headers: this.getRequestHeaders()
     });
 
     if (!response.ok) {
-      throw new PTPAPIError(
-        `Request failed: ${response.statusText}`,
-        response.status,
-        await response.json()
-      );
+      throw PTPError.fromHttpError('Request failed', response.status);
     }
 
     return response.json();
@@ -113,26 +123,23 @@ export class PTPApi {
 
   async downloadTorrent(id: string, path?: string): Promise<void> {
     await this.rateLimiter.consume();
-    const url = new URL('torrents.php', this.config.get('BASEURL'));
+    const url = new URL('torrents.php', this.config.getRequired(ConfigKey.BASE_URL));
     url.searchParams.append('action', 'download');
     url.searchParams.append('id', id);
+    url.searchParams.append('passkey', this.passKey);
 
     const response = await fetch(url.toString(), {
-      headers: {
-        'Cookie': this.sessionCookies.join('; '),
-        'ApiUser': this.config.get('APIUSER'),
-        'ApiKey': this.config.get('APIKEY')
-      }
+      headers: this.getRequestHeaders()
     });
 
     if (!response.ok) {
-      throw new PTPAPIError(
-        `Download failed: ${response.statusText}`,
-        response.status
-      );
+      throw PTPError.fromHttpError('Download failed', response.status);
     }
 
-    // Handle file saving based on path parameter
+    if (path) {
+      const buffer = await response.arrayBuffer();
+      await fs.writeFile(path, Buffer.from(buffer));
+    }
   }
 
   async collage(collageId: string, searchTerms?: Record<string, string>): Promise<Movie[]> {
@@ -161,15 +168,138 @@ export class PTPApi {
     return data.Requests || [];
   }
 
-  private async loginWithApiKey(apiUser: string, apiKey: string): Promise<void> {
-    // Implement API key login
+  /**
+   * Get common headers used in API requests
+   */
+  private getRequestHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Cookie': this.sessionCookies.join('; ')
+    };
+
+    // Add API credentials if available
+    const apiUser = this.config.get(ConfigKey.API_USER);
+    const apiKey = this.config.get(ConfigKey.API_KEY);
+    if (apiUser && apiKey) {
+      headers['ApiUser'] = apiUser;
+      headers['ApiKey'] = apiKey;
+    }
+
+    // Add auth key if available
+    if (this.authKey) {
+      headers['Authorization'] = `Bearer ${this.authKey}`;
+    }
+
+    return headers;
   }
 
-  private async loginWithCredentials(
-    username: string,
-    password: string,
-    passkey: string
-  ): Promise<void> {
-    // Implement username/password login
+  /**
+   * Perform an advanced search for movies using various filters
+   */
+  async advancedSearch(params: AdvancedSearchParams): Promise<Movie[]> {
+    try {
+      await this.rateLimiter.consume();
+
+      const searchParams = new URLSearchParams();
+      searchParams.append('action', 'advanced');
+
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+
+      const response = await fetch(
+        `${this.config.getRequired(ConfigKey.BASE_URL)}/torrents.php?${searchParams.toString()}`,
+        {
+          method: 'GET',
+          headers: this.getRequestHeaders()
+        }
+      );
+
+      if (!response.ok) {
+        throw PTPError.fromHttpError('Advanced search failed', response.status);
+      }
+
+      const data: PTPSearchResponse | PTPErrorResponse = await response.json();
+
+      if (isPTPErrorResponse(data)) {
+        throw PTPError.fromResponse(data);
+      }
+
+      return data.Movies.map(movieData => new Movie(this, movieData));
+
+    } catch (error) {
+      if (error instanceof ConfigValidationError) {
+        throw new PTPError('Search failed: Missing required configuration');
+      }
+      throw PTPError.fromError(error);
+    }
+  }
+
+  private async loginWithApiKey(apiUser: string, apiKey: string): Promise<void> {
+    try {
+      const passkey = this.config.get(ConfigKey.PASSKEY);
+      if (!passkey) {
+        throw new PTPError('Passkey is required for API key login');
+      }
+
+      const response = await fetch(`${this.config.getRequired(ConfigKey.BASE_URL)}/ajax.php?action=login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'ApiUser': apiUser,
+          'ApiKey': apiKey
+        }
+      });
+
+      if (!response.ok) {
+        throw PTPError.fromHttpError('API key login failed', response.status);
+      }
+
+      const data: PTPErrorResponse | { authKey: string } = await response.json();
+      
+      if (isPTPErrorResponse(data)) {
+        throw PTPError.fromResponse(data);
+      }
+
+      this.authKey = data.authKey;
+      this.passKey = passkey;
+      this.sessionCookies = response.headers.get('set-cookie')?.split(',') || [];
+    } catch (error) {
+      throw PTPError.fromError(error);
+    }
+  }
+
+  private async loginWithPassword(username: string, password: string, passkey: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.config.getRequired(ConfigKey.BASE_URL)}/ajax.php?action=login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          username,
+          password,
+          passkey,
+          keeplogged: '1'
+        }).toString()
+      });
+
+      if (!response.ok) {
+        throw PTPError.fromHttpError('Password login failed', response.status);
+      }
+
+      const data: PTPErrorResponse | { authKey: string } = await response.json();
+      
+      if (isPTPErrorResponse(data)) {
+        throw PTPError.fromResponse(data);
+      }
+
+      this.authKey = data.authKey;
+      this.passKey = passkey;
+      this.sessionCookies = response.headers.get('set-cookie')?.split(',') || [];
+    } catch (error) {
+      throw PTPError.fromError(error);
+    }
   }
 }

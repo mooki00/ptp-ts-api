@@ -1,9 +1,17 @@
 {
   "name": "@mooki0/ptp-ts-api",
   "version": "1.0.1",
-  "description": "TypeScript API client for PassThePopcorn",
+  "description": "TypeScript API for PassThePopcorn",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist",
     "README.md",
@@ -25,7 +33,7 @@
     "movies",
     "torrent"
   ],
-  "author": "mooki0",
+  "author": "mooki",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -36,17 +44,23 @@
   },
   "homepage": "https://github.com/mooki00/ptp-ts-api#readme",
   "dependencies": {
+    "cheerio": "^1.0.0",
     "node-fetch": "^2.6.1",
-    "yaml": "^2.3.4"
+    "parse-torrent": "^11.0.17",
+    "parse-torrent-file": "^4.2.2",
+    "yaml": "^2.6.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
     "@types/node-fetch": "^2.6.9",
+    "@types/parse-torrent": "^5.8.7",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
+    "dotenv": "^16.4.7",
     "eslint": "^8.56.0",
     "prettier": "^3.1.1",
     "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
   "engines": {
