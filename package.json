@@ -1,36 +1,58 @@
 {
-  "name": "ptp-ts-api",
+  "name": "@mooki0/ptp-ts-api",
   "version": "1.0.0",
   "description": "TypeScript API client for PassThePopcorn",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
+    "clean": "rimraf dist",
+    "prepare": "npm run clean && npm run build",
     "test": "jest",
-    "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts"
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [
     "ptp",
     "passthepopcorn",
     "api",
-    "typescript"
+    "typescript",
+    "movies",
+    "torrent"
   ],
-  "author": "",
+  "author": "mooki0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mooki00/ptp-ts-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mooki00/ptp-ts-api/issues"
+  },
+  "homepage": "https://github.com/mooki00/ptp-ts-api#readme",
   "dependencies": {
-    "node-fetch": "^3.3.0",
-    "yaml": "^2.3.1"
+    "node-fetch": "^2.6.1",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
-    "eslint": "^8.54.0",
-    "prettier": "^3.1.0",
-    "typescript": "^5.3.2"
+    "@types/node": "^20.10.5",
+    "@types/node-fetch": "^2.6.9",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=14.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,85 +1,41 @@
-# PTP TypeScript API
+# @mooki0/ptp-ts-api
 
-A TypeScript implementation of the PassThePopcorn API client.
+[![npm version](https://img.shields.io/npm/v/@mooki0/ptp-ts-api.svg)](https://www.npmjs.com/package/@mooki0/ptp-ts-api)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
+
+A TypeScript API client for PassThePopcorn, providing a modern, type-safe interface to interact with PTP's API.
 
 ## Features
 
-- Full TypeScript support with proper type definitions
-- Modern async/await API
-- Rate limiting and request management
-- Support for both API key and username/password authentication
-- Comprehensive movie, torrent, and user management
-- CLI-like interface for common operations
-- Origin file generation for torrent metadata
+- 🔒 Secure API key authentication
+- 🔍 Search movies and browse collections
+- 📦 Download torrents with proper rate limiting
+- 👤 User management (bookmarks, uploads)
+- 🎬 Movie and torrent information
+- 📝 Type-safe API with TypeScript
+- 🚀 Promise-based async/await interface
 
 ## Installation
 
 ```bash
-npm install ptp-ts-api
+# npm
+npm install @mooki0/ptp-ts-api
+
+# yarn
+yarn add @mooki0/ptp-ts-api
+
+# pnpm
+pnpm add @mooki0/ptp-ts-api
+
+# bun
+bun add @mooki0/ptp-ts-api
 ```
 
-## Usage
+## Quick Start
 
 ```typescript
-import { login, Movie, Torrent } from 'ptp-ts-api';
-
-// Initialize with API key
-const api = login({
-  apiUser: 'your-api-user',
-  apiKey: 'your-api-key'
-});
-
-// Search for movies
-const movies = await api.search({
-  searchstr: 'Inception',
-  year: '2010'
-});
-
-// Get movie details
-const movie = movies[0];
-console.log(movie.title);
-console.log(movie.year);
-
-// Get torrent information
-const torrent = movie.torrents[0];
-console.log(torrent.name);
-console.log(torrent.size);
-```
-
-## CLI Interface
-
-```typescript
-import { PTPCli } from 'ptp-ts-api';
-
-const cli = new PTPCli(api);
-
-// Search with CLI interface
-await cli.search({
-  terms: ['inception', 'year=2010'],
-  format: 'json'
-});
-
-// Check inbox
-await cli.inbox({
-  unread: true
-});
-```
-
-## Origin File Generation
-
-```typescript
-import { OriginManager } from 'ptp-ts-api';
-
-const origin = new OriginManager(api);
-await origin.writeOrigin('/path/to/torrent.torrent', {
-  outputDirectory: '/path/to/output'
-});
-```
-
-## Examples
-
-```typescript
-import { login } from 'ptp-ts-api';
+import { login } from '@mooki0/ptp-ts-api';
 
 // Initialize the API
 const api = login({
@@ -100,23 +56,6 @@ const torrent = await movie.getBestMatch({
   source: 'Blu-ray',
   resolution: '1080p'
 });
-
-// Browse collages
-const collageMovies = await api.collage('123', { search: 'Action' });
-
-// Browse artist filmography
-const artistMovies = await api.artist('456');
-
-// Find torrents that need seeding
-const needSeeding = await api.needForSeed();
-
-// Browse requests
-const requests = await api.requests({ search: 'Documentary' });
-
-// User operations
-const user = await api.getCurrentUser();
-const bookmarks = await user.bookmarks();
-const uploads = await user.uploads();
 ```
 
 ## Environment Configuration
@@ -156,18 +95,115 @@ PTPAPI_DEBUG=false
 PTPAPI_LOG_LEVEL=info
 ```
 
-A complete example configuration can be found in [.env.example](.env.example).
-
-You can also configure the API programmatically:
+## Examples
 
 ```typescript
-import { login } from 'ptp-ts-api';
+import { login } from '@mooki0/ptp-ts-api';
 
-const api = login({
-  apiUser: 'your-api-user',
-  apiKey: 'your-api-key',
-  // Or use username/password
-  // username: 'your-username',
-  // password: 'your-password',
-  // passkey: 'your-passkey'
-});
+// Browse collages
+const collageMovies = await api.collage('123', { search: 'Action' });
+
+// Browse artist filmography
+const artistMovies = await api.artist('456');
+
+// Find torrents that need seeding
+const needSeeding = await api.needForSeed();
+
+// Browse requests
+const requests = await api.requests({ search: 'Documentary' });
+
+// User operations
+const user = await api.getCurrentUser();
+const bookmarks = await user.bookmarks();
+const uploads = await user.uploads();
+```
+
+## API Reference
+
+### PTPApi
+
+The main API class for interacting with PassThePopcorn.
+
+```typescript
+import { PTPApi } from '@mooki0/ptp-ts-api';
+```
+
+#### Methods
+
+- `search(filters: Record<string, string>): Promise<Movie[]>`
+- `getMovie(id: string): Promise<Movie>`
+- `collage(collageId: string, searchTerms?: Record<string, string>): Promise<Movie[]>`
+- `artist(artistId: string, searchTerms?: Record<string, string>): Promise<Movie[]>`
+- `needForSeed(filters?: Record<string, string>): Promise<Movie[]>`
+- `requests(filters?: Record<string, string>): Promise<any[]>`
+- `getCurrentUser(): Promise<CurrentUser>`
+
+### Movie
+
+Represents a movie on PassThePopcorn.
+
+```typescript
+import { Movie } from '@mooki0/ptp-ts-api';
+```
+
+#### Properties
+
+- `id: string`
+- `title: string`
+- `year: string`
+- `cover: string`
+- `tags: string[]`
+- `directors: string[]`
+- `imdbId: string`
+- `type: string`
+- `torrents: Torrent[]`
+
+#### Methods
+
+- `getBestMatch(profile: TorrentProfile): Promise<Torrent | null>`
+
+### Torrent
+
+Represents a torrent on PassThePopcorn.
+
+```typescript
+import { Torrent } from '@mooki0/ptp-ts-api';
+```
+
+#### Properties
+
+- `id: string`
+- `size: number`
+- `codec: string`
+- `container: string`
+- `source: string`
+- `resolution: string`
+- `releaseGroup: string`
+- `seeders: number`
+- `leechers: number`
+
+### User
+
+Represents a user on PassThePopcorn.
+
+```typescript
+import { User, CurrentUser } from '@mooki0/ptp-ts-api';
+```
+
+#### Methods
+
+- `bookmarks(): Promise<Movie[]>`
+- `uploads(): Promise<Movie[]>`
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Based on the original Python implementation [PTPAPI](https://github.com/kannibalox/PTPAPI)
+- Thanks to the PTP development team for their API
