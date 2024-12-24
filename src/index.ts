@@ -8,10 +8,6 @@ export { Movie } from './models/movie';
 export { Torrent } from './models/torrent';
 export { User, CurrentUser } from './models/user';
 
-// CLI Tools
-export { PTPCli } from './cli/cli';
-export { OriginManager } from './cli/origin';
-
 // Utilities
 export { ConfigManager } from './utils/config';
 export { TokenBucket } from './utils/rate-limiter';

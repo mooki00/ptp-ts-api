@@ -1,16 +1,6 @@
 # PTP TypeScript API
 
-A TypeScript implementation of the PassThePopcorn API client.
-
-## Features
-
-- Full TypeScript support with proper type definitions
-- Modern async/await API
-- Rate limiting and request management
-- Support for both API key and username/password authentication
-- Comprehensive movie, torrent, and user management
-- CLI-like interface for common operations
-- Origin file generation for torrent metadata
+A TypeScript wrapper for the PassThePopcorn API.
 
 ## Installation
 
@@ -21,153 +11,88 @@ npm install ptp-ts-api
 ## Usage
 
 ```typescript
-import { login, Movie, Torrent } from 'ptp-ts-api';
+import { createApi, ConfigKey } from 'ptp-ts-api';
 
-// Initialize with API key
-const api = login({
-  apiUser: 'your-api-user',
-  apiKey: 'your-api-key'
+// Initialize the API with your credentials
+const api = createApi({
+  [ConfigKey.API_USER]: 'your-api-user',
+  [ConfigKey.API_KEY]: 'your-api-key'
 });
 
-// Search for movies
+// Basic search
 const movies = await api.search({
-  searchstr: 'Inception',
-  year: '2010'
+  searchstr: 'Up 2009'
 });
 
-// Get movie details
-const movie = movies[0];
-console.log(movie.title);
-console.log(movie.year);
-
-// Get torrent information
-const torrent = movie.torrents[0];
-console.log(torrent.name);
-console.log(torrent.size);
-```
-
-## CLI Interface
-
-```typescript
-import { PTPCli } from 'ptp-ts-api';
-
-const cli = new PTPCli(api);
-
-// Search with CLI interface
-await cli.search({
-  terms: ['inception', 'year=2010'],
-  format: 'json'
-});
-
-// Check inbox
-await cli.inbox({
-  unread: true
-});
-```
-
-## Origin File Generation
-
-```typescript
-import { OriginManager } from 'ptp-ts-api';
-
-const origin = new OriginManager(api);
-await origin.writeOrigin('/path/to/torrent.torrent', {
-  outputDirectory: '/path/to/output'
-});
-```
-
-## Examples
-
-```typescript
-import { login } from 'ptp-ts-api';
-
-// Initialize the API
-const api = login({
-  apiUser: 'your-api-user',
-  apiKey: 'your-api-key'
-});
-
-// Search for movies
-const movies = await api.search({ searchStr: 'Inception' });
-
-// Get movie by ID
-const movie = await api.getMovie('123456');
-
-// Get movie's best matching torrent
-const torrent = await movie.getBestMatch({
+// Advanced search
+const advancedResults = await api.search({
+  action: 'advanced',
+  searchstr: 'Up',
+  year: '2009',
+  taglist: 'animation',
   codec: 'x264',
-  container: 'MKV',
-  source: 'Blu-ray',
   resolution: '1080p'
 });
 
-// Browse collages
-const collageMovies = await api.collage('123', { search: 'Action' });
+// Get movie details
+const movie = await api.getMovie('123456');
 
-// Browse artist filmography
-const artistMovies = await api.artist('456');
+// Get torrent details
+const torrent = await api.getTorrent('123456', '789012');
 
-// Find torrents that need seeding
-const needSeeding = await api.needForSeed();
-
-// Browse requests
-const requests = await api.requests({ search: 'Documentary' });
-
-// User operations
-const user = await api.getCurrentUser();
-const bookmarks = await user.bookmarks();
-const uploads = await user.uploads();
+// Download a torrent
+await api.downloadTorrent('123456');
 ```
 
-## Environment Configuration
+## API Methods
 
-The API can be configured through environment variables. Create a `.env` file in your project root:
+- `search(params)`: Search for movies using basic or advanced parameters
+- `getMovie(id)`: Get details for a specific movie
+- `getTorrent(id, groupId)`: Get details for a specific torrent
+- `downloadTorrent(id)`: Download a torrent file
+- `getCurrentUser()`: Get current user information
+- `getUser(id)`: Get user information
+- `collage(id, searchTerms?)`: Get movies from a collage
+- `artist(id, searchTerms?)`: Get movies from an artist
+- `needForSeed(filters?)`: Get movies that need seeding
+- `requests(filters?)`: Get requests
 
-```bash
-# Authentication (use either API key or username/password)
-# Option 1: API Key (recommended)
+## Advanced Search Parameters
+
+You can use advanced search by passing `action: 'advanced'` along with any of these parameters:
+
+- `searchstr`: Search string
+- `year`: Release year
+- `taglist`: Comma-separated list of tags
+- `codec`: Video codec (e.g., 'x264', 'x265')
+- `container`: Container format (e.g., 'MKV', 'MP4')
+- `resolution`: Video resolution (e.g., '1080p', '2160p')
+- `source`: Source media (e.g., 'Blu-ray', 'WEB')
+- And many more...
+
+## Environment Variables
+
+You can also configure the API using environment variables:
+
+```env
 PTPAPI_APIUSER=your-api-user
 PTPAPI_APIKEY=your-api-key
-
-# Option 2: Username/Password
-PTPAPI_USERNAME=your-username
-PTPAPI_PASSWORD=your-password
-PTPAPI_PASSKEY=your-passkey
-
-# API Settings
-PTPAPI_BASEURL=https://passthepopcorn.me/
-PTPAPI_COOKIESFILE=.cookies
-
-# Rate Limiting
-PTPAPI_RATELIMIT_CAPACITY=5
-PTPAPI_RATELIMIT_REFILL=2
-
-# Request Settings
-PTPAPI_RETRY=true
-PTPAPI_RETRY_ATTEMPTS=3
-PTPAPI_RETRY_DELAY=1000
-
-# Download Settings
-PTPAPI_DOWNLOAD_DIRECTORY=./downloads
-PTPAPI_AUTOLOAD_TORRENTS=false
-
-# Debug Settings
-PTPAPI_DEBUG=false
-PTPAPI_LOG_LEVEL=info
 ```
 
-A complete example configuration can be found in [.env.example](.env.example).
+## Error Handling
 
-You can also configure the API programmatically:
+The API throws `PTPError` for any API-related errors. Always wrap API calls in try/catch blocks:
 
 ```typescript
-import { login } from 'ptp-ts-api';
+try {
+  const movies = await api.search({ searchstr: 'Up 2009' });
+} catch (error) {
+  if (error instanceof PTPError) {
+    console.error('API Error:', error.message, error.status);
+  }
+}
+```
 
-const api = login({
-  apiUser: 'your-api-user',
-  apiKey: 'your-api-key',
-  // Or use username/password
-  // username: 'your-username',
-  // password: 'your-password',
-  // passkey: 'your-passkey'
-});
+## License
+
+MIT

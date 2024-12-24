@@ -1,0 +1,9 @@
+src/
+tests/
+examples/
+.env*
+.git*
+.eslintrc*
+jest.config.*
+tsconfig.*
+*.log
