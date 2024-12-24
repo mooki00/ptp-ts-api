@@ -1,9 +1,17 @@
 {
-  "name": "ptp-ts-api",
+  "name": "@mooki0/ptp-ts-api",
   "version": "1.0.3",
-  "description": "TypeScript API wrapper for PassThePopcorn",
+  "description": "TypeScript API for PassThePopcorn",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist",
     "README.md",
@@ -16,13 +24,22 @@
     "prepare": "npm run build"
   },
   "keywords": [
-    "passthepopcorn",
     "ptp",
+    "passthepopcorn",
     "api",
-    "typescript"
+    "typescript",
+    "movies"
   ],
   "author": "mooki0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mooki00/ptp-ts-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mooki00/ptp-ts-api/issues"
+  },
+  "homepage": "https://github.com/mooki00/ptp-ts-api#readme",
   "dependencies": {
     "dotenv": "^16.3.1"
   },
